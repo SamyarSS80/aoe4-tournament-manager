@@ -1,0 +1,12 @@
+*.pyc
+venv/
+*.env
+django
+db.sqlite3
+storage/
+static/
+*.sql
+celerybeat-schedule.db
+celerybeat-schedule
+*.json
+.vscode/

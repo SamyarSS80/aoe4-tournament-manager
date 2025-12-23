@@ -1,0 +1,101 @@
+services:
+  app:
+    build: .
+    env_file:
+      - app.env
+    volumes:
+      - ../storage/aoe_tour/app-storage:/var/www/storage
+      - ../storage/aoe_tour/static:/var/www/static
+    networks:
+      - app
+      - database
+      - storage
+    command: [ "gunicorn","-b", "0.0.0.0:9090", "-w", "2", "aoe_tour.wsgi:application", "--access-logfile", "-", "--error-logfile", "-", "--timeout", "600" ]
+    profiles: ["prod"]
+
+  celery:
+    build: .
+    env_file:
+      - app.env
+    volumes:
+      - ../storage/aoe_tour/app-storage:/var/www/storage
+      - ../storage/aoe_tour/static:/var/www/static
+    networks:
+      - app
+      - database
+      - storage
+    command: [ "celery", "-A", "aoe_tour", "worker", "-l", "info", "-B", "-S", "django" ]
+    profiles: ["prod"]
+
+  nginx:
+    build: .
+    env_file:
+      - app.env
+    volumes:
+      - ../storage/aoe_tour/static:/var/www/static
+    networks:
+      - app
+    command: [ "nginx" ]
+    ports:
+      - "8009:80"
+    profiles: ["prod"]
+
+  db:
+    image: postgres:17
+    restart: always
+    env_file:
+      - db.env
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ../storage/aoe_tour/postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5441:5432"
+    networks:
+      - database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aoe_tour"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    profiles: ["local", "prod"]
+
+  redis:
+    image: redis:latest
+    restart: always
+    networks:
+      - database
+    ports:
+      - "127.0.0.1:6388:6379"
+    profiles: ["local", "prod"]
+
+  minio:
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+    restart: always
+    volumes:
+      - ../storage/aoe_tour/minio-data:/data
+    networks:
+      - storage
+    command: server /data --console-address ":9001"
+    env_file:
+      - minio.env
+    ports:
+      - "127.0.0.1:9009:9000"
+      - "9010:9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    profiles: ["local", "prod"]
+
+networks:
+  database:
+    name: aoe-tour-database
+    driver: bridge
+  app:
+    name: aoe-tour-app
+    driver: bridge
+  storage:
+    name: aoe-tour-storage
+    driver: bridge
