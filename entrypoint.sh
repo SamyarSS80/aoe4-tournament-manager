@@ -1,15 +1,24 @@
 #!/bin/bash
 set -e
 
-if [ "$1" = "gunicorn" ]; then
+cd /var/www
+
+if [ "$1" == "uwsgi" ]; then
   shift
-  cd /var/www
+  python3 manage.py migrate --noinput
+  exec uwsgi "$@"
+
+elif [ "$1" = "gunicorn" ]; then
+  shift
   python3 manage.py migrate --noinput
   exec gunicorn "$@"
 
+elif [ "$1" = "daphne" ]; then
+  shift
+  exec daphne "$@"
+
 elif [ "$1" = "celery" ]; then
   shift
-  cd /var/www
   exec celery "$@"
 
 elif [ "$1" = "nginx" ]; then
@@ -72,15 +81,4 @@ http {
 EOL
 
   exec nginx
-
-elif [ "$1" = "manage.py" ]; then
-  shift
-  cd /var/www
-  exec python3 manage.py "$@"
-
-elif [ "$1" = "bash" ]; then
-  exec bash
-
-else
-  exec "$@"
 fi

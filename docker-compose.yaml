@@ -5,7 +5,6 @@ services:
       - app.env
     volumes:
       - ../storage/aoe_tour/app-storage:/var/www/storage
-      - ../storage/aoe_tour/static:/var/www/static
     networks:
       - app
       - database
@@ -19,7 +18,6 @@ services:
       - app.env
     volumes:
       - ../storage/aoe_tour/app-storage:/var/www/storage
-      - ../storage/aoe_tour/static:/var/www/static
     networks:
       - app
       - database
@@ -31,10 +29,9 @@ services:
     build: .
     env_file:
       - app.env
-    volumes:
-      - ../storage/aoe_tour/static:/var/www/static
     networks:
       - app
+      - storage
     command: [ "nginx" ]
     ports:
       - "8009:80"
@@ -80,8 +77,8 @@ services:
     env_file:
       - minio.env
     ports:
-      - "127.0.0.1:9009:9000"
-      - "9010:9001"
+      - "9009:9000"
+      - "127.0.0.1:9010:9001"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 30s

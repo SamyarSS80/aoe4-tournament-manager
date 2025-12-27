@@ -1,5 +1,11 @@
+import logging
 from pathlib import Path
 from datetime import timedelta
+
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 import environ
 
@@ -31,7 +37,10 @@ INSTALLED_APPS = [
     "django_minio_backend",
 
     "common",
+    "jwt_token",
+    "user",
     "core",
+    "aoe_world",
 ]
 
 MIDDLEWARE = [
@@ -69,6 +78,21 @@ WSGI_APPLICATION = "aoe_tour.wsgi.application"
 DATABASES = {
     "default": env.db("DATABASE_URL", default="sqlite:///db.sqlite3"),
 }
+
+AUTH_USER_MODEL = "user.User"
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 6}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+JWT_SECRET_KEY = env("JWT_SECRET_KEY", cast=str, default=SECRET_KEY)
+JWT_ALGORITHM = env("JWT_ALGORITHM", cast=str, default="HS256")
+JWT_EXPIRATION_MINUTES = env("JWT_EXPIRATION_MINUTES", cast=int, default=90 * 24 * 60)
+JWT_REFRESH_EXPIRATION_MINUTES = env("JWT_REFRESH_EXPIRATION_MINUTES", cast=int, default=60 * 24 * 365)
+JWT_AUTH_HEADER_PREFIX = env("JWT_AUTH_HEADER_PREFIX", cast=str, default="Bearer")
 
 MINIO_ENDPOINT = env("MINIO_ENDPOINT", default="localhost:9009")
 MINIO_EXTERNAL_ENDPOINT = env("MINIO_EXTERNAL_ENDPOINT", default=MINIO_ENDPOINT)
@@ -108,7 +132,21 @@ STORAGES = {
     },
 
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
+        "BACKEND": "django_minio_backend.models.MinioBackendStatic",
+        "OPTIONS": {
+            "MINIO_ENDPOINT": MINIO_ENDPOINT,
+            "MINIO_EXTERNAL_ENDPOINT": MINIO_EXTERNAL_ENDPOINT,
+            "MINIO_EXTERNAL_ENDPOINT_USE_HTTPS": MINIO_EXTERNAL_ENDPOINT_USE_HTTPS,
+            "MINIO_ACCESS_KEY": MINIO_ACCESS_KEY,
+            "MINIO_SECRET_KEY": MINIO_SECRET_KEY,
+            "MINIO_USE_HTTPS": MINIO_USE_HTTPS,
+
+            "MINIO_PUBLIC_BUCKETS": [MINIO_PUBLIC_BUCKET],
+            "MINIO_DEFAULT_BUCKET": MINIO_STATIC_FILES_BUCKET,
+            "MINIO_URL_EXPIRY_HOURS": MINIO_URL_EXPIRY_HOURS,
+            "MINIO_CONSISTENCY_CHECK_ON_START": MINIO_CONSISTENCY_CHECK_ON_START,
+            "MINIO_BUCKET_CHECK_ON_SAVE": MINIO_BUCKET_CHECK_ON_SAVE,
+        },
     },
 }
 
@@ -138,9 +176,11 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = env("CELERY_WORKER_PREFETCH_MULTIPLIER", cas
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "jwt_token.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ],
+    "EXCEPTION_HANDLER": "common.handlers.api_exception_handler",
 }
 
 SPECTACULAR_SETTINGS = {
@@ -154,10 +194,28 @@ SPECTACULAR_SETTINGS = {
                 "type": "apiKey",
                 "in": "header",
                 "name": "Authorization",
-                "description": "Bearer %YourJWT",
+                "description": "Bearer <access_token>",
             }
         }
     },
     "SECURITY": [{"ApiKeyAuth": []}],
     "COMPONENT_SPLIT_REQUEST": True,
 }
+
+sentry_sdk.init(
+    dsn=env('SENTRY_DSN', cast=str, default=''),
+    integrations=[
+        DjangoIntegration(), 
+        CeleryIntegration(),
+        LoggingIntegration(
+            level=logging.INFO,
+            event_level=logging.WARNING,
+        ),
+    ],
+    environment=env('SENTRY_ENV', cast=str, default='development'),
+    enable_tracing=True,
+    attach_stacktrace=True,
+    send_default_pii=False,
+    traces_sample_rate=env.float('SENTRY_TRACES_SAMPLE_RATE', default=1.0),
+    profiles_sample_rate=env.float('SENTRY_PROFILES_SAMPLE_RATE', default=1.0),
+)
