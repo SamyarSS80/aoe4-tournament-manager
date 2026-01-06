@@ -6,7 +6,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 from aoe_world import consts
 from core.models import GameRank
-from common.utils import int_or_none, normalize_str
+from common.utils import int_or_none, str_to_lower
 from aoe_world.models import AoeWorldProfile
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,7 @@ class AoeWorldAPIService:
     TIMEOUT = consts.AOE4WORLD_TIMEOUT
     _session = requests.Session()
 
+    @classmethod
     def get_player_profile(cls, profile_id: int) -> dict:
         path = f"/players/{profile_id}"
         url = f"{cls.BASE_URL}{path}"
@@ -38,7 +39,7 @@ class AoeWorldAPIService:
 
     @staticmethod
     def _parse_rank_level(rank_level: Any) -> Tuple[Optional[str], int]:
-        s = normalize_str(rank_level)
+        s = str_to_lower(rank_level)
         if not s:
             return None, 0
 

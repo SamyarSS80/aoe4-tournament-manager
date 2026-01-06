@@ -156,7 +156,7 @@ STATIC_ROOT = BASE_DIR / "static"
 LANGUAGE_CODE = env("LANGUAGE_CODE", default="en-us")
 TIME_ZONE = env("TIME_ZONE", default="Asia/Tehran")
 USE_I18N = env("USE_I18N", cast=bool, default=True)
-USE_TZ = env("USE_TZ", cast=bool, default=False)
+USE_TZ = env("USE_TZ", cast=bool, default=True)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

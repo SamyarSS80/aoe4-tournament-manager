@@ -9,7 +9,7 @@ def int_or_none(v):
     except (TypeError, ValueError):
         return None
 
-def normalize_str(v: Any, *, lower: bool = True) -> str:
+def str_to_lower(v: Any, *, lower: bool = True) -> str:
     if v is None:
         return ""
 
@@ -19,3 +19,9 @@ def normalize_str(v: Any, *, lower: bool = True) -> str:
         return ""
 
     return s.lower() if lower else s
+
+def normalize_str_value(raw):
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    return s or None
